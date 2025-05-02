@@ -23,7 +23,7 @@ stages:
       displayName: Build and Push to Docker Hub
       inputs:
         containerRegistry: 'DockerHub' # Docker Hub service connection
-        repository: '$(dockerHubRepository)' # Repository name: xyrt/k88s
+        repository: '$(dockerHubRepository)' # xyrt/k88s
         command: 'buildAndPush'
         Dockerfile: '$(Build.SourcesDirectory)/app/Dockerfile'
         tags: |
@@ -39,7 +39,7 @@ stages:
   displayName: Deploy to Dev
   dependsOn: Build
   variables:
-    acrsecret: k8sexamplesacrauth
+    acrsecret: dockerhub-auth # New name for DockerHub secret
     replicaNo: 3
   jobs:
   - deployment: Deploy
@@ -56,27 +56,15 @@ stages:
               buildType: 'current'
               artifactName: 'manifests'
               targetPath: '$(Pipeline.Workspace)/manifests'
+
           - task: KubernetesManifest@0
             inputs:
               action: 'createSecret'
               namespace: 'default'
               secretType: 'dockerRegistry'
               secretName: '$(acrsecret)'
-              dockerRegistryEndpoint: 'DockerHub' # Use the Docker Hub service connection
-          - task: replacetokens@3
-            displayName: Replace Tokens
-            inputs:
-              rootDirectory: '$(Pipeline.Workspace)/manifests/'
-              targetFiles: 'deployment.yml'
-              encoding: 'auto'
-              writeBOM: true
-              actionOnMissing: 'warn'
-              keepToken: false
-              tokenPrefix: '#'
-              tokenSuffix: '#'
-              useLegacyPattern: false
-              enableTransforms: false
-              enableTelemetry: true
+              dockerRegistryEndpoint: 'DockerHub'
+
           - task: KubernetesManifest@0
             inputs:
               action: 'deploy'
@@ -84,5 +72,6 @@ stages:
               manifests: |
                 $(Pipeline.Workspace)/manifests/deployment.yml
                 $(Pipeline.Workspace)/manifests/service.yml
-              containers: '$(dockerHubRepository):$(tag)' # Pull image from Docker Hub
-              imagePullSecrets: '$(acrsecret)' # Use Docker Hub secret
+              containers: '$(dockerHubRepository):$(tag)'
+              imagePullSecrets: '$(acrsecret)'
+
